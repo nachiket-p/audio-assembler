@@ -30,7 +30,7 @@ export default function JsonPreview({ template }: JsonPreviewProps) {
             code={formattedJson}
             language="json"
           >
-            {({ className, style, tokens, getLineProps, getTokenProps }) => (
+            {({ style, tokens, getLineProps, getTokenProps }) => (
               <pre 
                 className="p-4 rounded-lg bg-secondary overflow-x-auto max-h-[60vh] text-sm"
                 style={{

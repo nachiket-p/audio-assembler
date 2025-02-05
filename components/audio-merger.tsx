@@ -4,13 +4,11 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import AudioUploader from './audio-uploader'
-import AudioPreview from './audio-preview'
 import { Template, AudioFiles } from '@/lib/types'
 import { templates } from '@/lib/templates'
 import { mergeAudio } from '@/lib/audio-processor'
 import AudioPlayer from './audio-player'
 import JsonPreview from './json-preview'
-import { convertToMp3 } from '@/lib/audio-converter'
 
 export default function AudioMerger() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
