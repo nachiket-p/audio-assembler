@@ -20,29 +20,38 @@ export default function AudioPlayer({
   hideSubtext 
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [duration, setDuration] = useState<number | null>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
-
-  // Get filename from URL
-  const getFileName = (url: string) => {
-    if (url.startsWith('blob:')) {
-      // For uploaded files (blob URLs), get the name from the last segment
-      return url.split('/').pop() || 'Uploaded file'
-    }
-    // For remote files, get the filename from the URL
-    return url.split('/').pop()?.split('?')[0] || 'Audio file'
-  }
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration)
+    }
+
     const handleEnded = () => setIsPlaying(false)
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
     audio.addEventListener('ended', handleEnded)
     
+    // Try to get duration if already loaded
+    if (audio.duration) {
+      setDuration(audio.duration)
+    }
+    
     return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
       audio.removeEventListener('ended', handleEnded)
     }
-  }, [])
+  }, [audioUrl])
+
+  const formatDuration = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = Math.floor(seconds % 60)
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
 
   const togglePlay = () => {
     if (!audioRef.current) return
@@ -65,7 +74,7 @@ export default function AudioPlayer({
           <p className="text-sm text-gray-500">
             {isFixed ? 'Fixed audio segment' : 
              isBackground ? 'Background music' : 
-             getFileName(audioUrl)}
+             duration ? `Duration: ${formatDuration(duration)}` : 'Loading...'}
           </p>
         )}
       </div>

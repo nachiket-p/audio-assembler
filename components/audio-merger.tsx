@@ -9,6 +9,8 @@ import { Template, AudioFiles } from '@/lib/types'
 import { templates } from '@/lib/templates'
 import { mergeAudio } from '@/lib/audio-processor'
 import AudioPlayer from './audio-player'
+import JsonPreview from './json-preview'
+import { convertToMp3 } from '@/lib/audio-converter'
 
 export default function AudioMerger() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -16,6 +18,9 @@ export default function AudioMerger() {
   const [mergedAudioUrl, setMergedAudioUrl] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [downloadFormat, setDownloadFormat] = useState<'wav' | 'mp3'>('wav')
+  const [downloadBlob, setDownloadBlob] = useState<Blob | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const handleTemplateSelect = (templateId: string) => {
     const template = templates.find(t => t.id === templateId)
@@ -43,6 +48,7 @@ export default function AudioMerger() {
       const mergedBlob = await mergeAudio(selectedTemplate, audioFiles)
       const url = URL.createObjectURL(mergedBlob)
       setMergedAudioUrl(url)
+      setDownloadBlob(mergedBlob)
     } catch (err) {
       setError('Failed to merge audio files. Please try again.')
       console.error(err)
@@ -51,13 +57,21 @@ export default function AudioMerger() {
     }
   }
 
-  const handleDownload = () => {
-    if (!mergedAudioUrl) return
-    
-    const link = document.createElement('a')
-    link.href = mergedAudioUrl
-    link.download = 'merged_audio.wav'
-    link.click()
+  const handleDownload = async () => {
+    if (!downloadBlob || downloadFormat === 'mp3') return
+
+    try {
+      setIsDownloading(true)
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(downloadBlob)
+      link.download = `merged_audio.wav`
+      link.click()
+    } catch (error) {
+      console.error('Download failed:', error)
+      setError('Failed to download file. Please try again.')
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   const requiredUploads = selectedTemplate?.audioSequence.filter(item => item.placeholderKey).length ?? 0
@@ -79,7 +93,7 @@ export default function AudioMerger() {
             {templates.map(template => (
               <div 
                 key={template.id}
-                className={`p-6 rounded-lg border-2 cursor-pointer transition-colors
+                className={`p-6 rounded-lg border-2 cursor-pointer transition-colors relative
                   ${selectedTemplate?.id === template.id 
                     ? 'border-primary bg-primary/5' 
                     : 'border-border hover:border-primary/50'}`}
@@ -92,6 +106,9 @@ export default function AudioMerger() {
                     <span>Fade in: {template.fadeIn}s</span>
                     <span>Fade out: {template.fadeOut}s</span>
                   </p>
+                </div>
+                <div onClick={e => e.stopPropagation()}>
+                  <JsonPreview template={template} />
                 </div>
               </div>
             ))}
@@ -173,13 +190,32 @@ export default function AudioMerger() {
                         />
                       </div>
                     </div>
-                    <Button 
-                      variant="outline"
-                      className="w-full sm:w-auto"
-                      onClick={handleDownload}
-                    >
-                      Download
-                    </Button>
+                    <div className="flex items-center gap-4">
+                      <Select
+                        value={downloadFormat}
+                        onValueChange={(value: 'wav' | 'mp3') => setDownloadFormat(value)}
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue placeholder="Format" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="wav">WAV</SelectItem>
+                          <SelectItem value="mp3">MP3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="flex-1">
+                        <Button 
+                          variant="outline"
+                          className="w-full sm:w-auto"
+                          onClick={handleDownload}
+                          disabled={isDownloading || downloadFormat === 'mp3'}
+                        >
+                          {downloadFormat === 'mp3' 
+                            ? 'MP3 download not supported yet'
+                            : `Download ${downloadFormat.toUpperCase()}`}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
