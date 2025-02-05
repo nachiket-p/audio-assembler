@@ -8,6 +8,7 @@ import AudioPreview from './audio-preview'
 import { Template, AudioFiles } from '@/lib/types'
 import { templates } from '@/lib/templates'
 import { mergeAudio } from '@/lib/audio-processor'
+import AudioPlayer from './audio-player'
 
 export default function AudioMerger() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -63,74 +64,129 @@ export default function AudioMerger() {
   const hasAllRequiredFiles = audioFiles.audioFiles.length === requiredUploads
 
   return (
-    <div className="space-y-8">
-      <div className="w-full max-w-xs">
-        <Select onValueChange={handleTemplateSelect}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a template" />
-          </SelectTrigger>
-          <SelectContent>
-            {templates.map(template => (
-              <SelectItem key={template.id} value={template.id}>
-                {template.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <div className="max-w-3xl mx-auto space-y-12">
+      <div className="text-center space-y-2">
+        <h1 className="text-4xl font-bold">Audio Merger</h1>
+        <p className="text-xl text-gray-500">
+          Merge audio files with background music and fading effects
+        </p>
       </div>
 
-      {selectedTemplate && (
-        <div className="space-y-6">
-          <div className="grid gap-4">
-            {selectedTemplate.audioSequence.map((item, index) => (
-              <div key={index} className="p-4 border rounded-lg">
-                <h3 className="font-medium mb-2">{item.label}</h3>
-                {item.fileUrl ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-500">Fixed Audio Track</p>
-                    <AudioPreview audioUrl={item.fileUrl} />
-                  </div>
-                ) : (
-                  <AudioUploader
-                    placeholderKey={item.placeholderKey!}
-                    label="Upload audio file"
-                    onFileUpload={handleFileUpload}
-                  />
-                )}
-                {item.backgroundMusic && (
-                  <div className="mt-4 space-y-2">
-                    <p className="text-sm text-gray-500">Background Music</p>
-                    <AudioPreview audioUrl={item.backgroundMusic} />
-                  </div>
-                )}
+      <div className="space-y-8">
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">1. Select Template</h2>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {templates.map(template => (
+              <div 
+                key={template.id}
+                className={`p-6 rounded-lg border-2 cursor-pointer transition-colors
+                  ${selectedTemplate?.id === template.id 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'}`}
+                onClick={() => handleTemplateSelect(template.id)}
+              >
+                <h3 className="font-semibold text-lg">{template.name}</h3>
+                <div className="mt-2 space-y-1 text-sm text-gray-500">
+                  <p>{template.audioSequence.length} audio segments</p>
+                  <p className="flex gap-4">
+                    <span>Fade in: {template.fadeIn}s</span>
+                    <span>Fade out: {template.fadeOut}s</span>
+                  </p>
+                </div>
               </div>
             ))}
           </div>
+        </section>
 
-          <div className="space-y-4">
-            <Button 
-              onClick={handleMerge}
-              disabled={isProcessing || !hasAllRequiredFiles}
-            >
-              {isProcessing ? 'Processing...' : 'Merge Audio'}
-            </Button>
-
-            {error && (
-              <p className="text-red-500">{error}</p>
-            )}
-
-            {mergedAudioUrl && (
-              <div className="space-y-4">
-                <h3 className="font-medium">Final Audio</h3>
-                <AudioPreview audioUrl={mergedAudioUrl} />
-                <Button onClick={handleDownload}>
-                  Download Merged Audio
-                </Button>
+        {selectedTemplate && (
+          <>
+            <section>
+              <h2 className="text-2xl font-semibold mb-4">2. Upload Audio Files</h2>
+              <div className="space-y-6">
+                {selectedTemplate.audioSequence.map((item, index) => (
+                  <div key={index} className="p-6 rounded-lg border">
+                    {item.fileUrl ? (
+                      <AudioPlayer 
+                        audioUrl={item.fileUrl}
+                        label={item.label}
+                        isFixed
+                      />
+                    ) : (
+                      <>
+                        <AudioUploader
+                          placeholderKey={item.placeholderKey!}
+                          label={item.label}
+                          onFileUpload={handleFileUpload}
+                        />
+                        {audioFiles.audioFiles.find(f => f.placeholderKey === item.placeholderKey) && (
+                          <div className="mt-4">
+                            <AudioPlayer 
+                              audioUrl={audioFiles.audioFiles.find(f => f.placeholderKey === item.placeholderKey)!.fileUrl}
+                              label="Preview uploaded audio"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {item.backgroundMusic && (
+                      <div className="mt-4">
+                        <AudioPlayer 
+                          audioUrl={item.backgroundMusic}
+                          label="Background Music"
+                          isBackground
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold mb-4">3. Preview and Download</h2>
+              <div className="space-y-4">
+                <Button 
+                  className="w-full sm:w-auto"
+                  onClick={handleMerge}
+                  disabled={isProcessing || !hasAllRequiredFiles}
+                >
+                  {isProcessing ? 'Processing...' : 'Generate Preview'}
+                </Button>
+
+                {error && (
+                  <p className="text-red-500">{error}</p>
+                )}
+
+                {mergedAudioUrl && (
+                  <div className="space-y-4">
+                    <div className="p-6 rounded-lg border">
+                      <AudioPlayer 
+                        audioUrl={mergedAudioUrl}
+                        label="Final Audio"
+                        hideSubtext
+                      />
+                      <div className="mt-4">
+                        <audio 
+                          src={mergedAudioUrl} 
+                          className="w-full h-12 rounded-lg bg-secondary"
+                          controls
+                        />
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={handleDownload}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+      </div>
     </div>
   )
 } 

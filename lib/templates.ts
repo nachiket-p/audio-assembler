@@ -35,26 +35,24 @@ export const templates: Template[] = [
     name: 'Audio Story',
     audioSequence: [
       {
-        fileUrl: 'https://audio-samples.github.io/samples/mp3/story-intro.mp3',
+        fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-1.mp3',
         label: 'Story Opening Theme'
       },
       {
-        backgroundMusic: 'https://audio-samples.github.io/samples/mp3/loop-ambient.mp3',
         placeholderKey: 'story-intro',
         label: 'Story Introduction'
       },
       {
-        backgroundMusic: 'https://audio-samples.github.io/samples/mp3/loop-ambient.mp3',
+        backgroundMusic: 'https://audio-samples.github.io/samples/mp3/music/sample-3.mp3',
         placeholderKey: 'main-story',
         label: 'Main Story Content'
       },
       {
-        backgroundMusic: 'https://audio-samples.github.io/samples/mp3/loop-ambient.mp3',
         placeholderKey: 'story-conclusion',
         label: 'Story Conclusion'
       },
       {
-        fileUrl: 'https://audio-samples.github.io/samples/mp3/story-outro.mp3',
+        fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-6.mp3',
         label: 'Story Closing Theme'
       }
     ],
