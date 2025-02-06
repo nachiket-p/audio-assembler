@@ -7,7 +7,7 @@ export const templates: Template[] = [
     audioSequence: [
       {
         fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-4.mp3',
-        label: 'Standard Intro Jingle',
+        label: 'Opening Theme',
       },
     //   {
     //     placeholderKey: 'episode-intro',
@@ -24,7 +24,7 @@ export const templates: Template[] = [
     //   },
       {
         fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-2.mp3',
-        label: 'Standard Outro Jingle',
+        label: 'Closing Theme',
       }
     ],
     fadeIn: 2,
@@ -36,24 +36,24 @@ export const templates: Template[] = [
     audioSequence: [
       {
         fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-1.mp3',
-        label: 'Story Opening Theme'
+        label: 'Opening Theme'
       },
       {
         placeholderKey: 'story-intro',
-        label: 'Story Introduction'
+        label: 'Introduction'
       },
       {
         backgroundMusic: 'https://audio-samples.github.io/samples/mp3/music/sample-3.mp3',
         placeholderKey: 'main-story',
-        label: 'Main Story Content'
+        label: 'National Content'
       },
       {
         placeholderKey: 'story-conclusion',
-        label: 'Story Conclusion'
+        label: 'Dynamic Content'
       },
       {
         fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-6.mp3',
-        label: 'Story Closing Theme'
+        label: 'Closing Theme'
       }
     ],
     fadeIn: 1.5,
