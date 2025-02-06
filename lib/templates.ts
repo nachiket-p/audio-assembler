@@ -3,7 +3,7 @@ import { Template } from './types'
 export const templates: Template[] = [
   {
     id: 'podcast-template',
-    name: 'Podcast Episode',
+    name: 'Zipcast Small',
     audioSequence: [
       {
         fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-4.mp3',
@@ -32,7 +32,7 @@ export const templates: Template[] = [
   },
   {
     id: 'story-template',
-    name: 'Audio Story',
+    name: 'Zipcast Large',
     audioSequence: [
       {
         fileUrl: 'https://audio-samples.github.io/samples/mp3/music/sample-1.mp3',

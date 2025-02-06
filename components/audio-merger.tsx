@@ -78,7 +78,7 @@ export default function AudioMerger() {
   return (
     <div className="max-w-3xl mx-auto space-y-12">
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold">Audio Assembler</h1>
+        <h1 className="text-4xl font-bold">Zipcast Audio Assembler</h1>
         <p className="text-xl text-gray-500">
           Merge audio files with background music and fading effects
         </p>
