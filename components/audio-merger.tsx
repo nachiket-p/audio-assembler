@@ -9,6 +9,7 @@ import { templates } from '@/lib/templates'
 import { mergeAudio } from '@/lib/audio-processor'
 import AudioPlayer from './audio-player'
 import JsonPreview from './json-preview'
+import PlaylistPlayer from './playlist-player'
 
 export default function AudioMerger() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -215,6 +216,25 @@ export default function AudioMerger() {
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+            </section>
+            
+            <section>
+              <h2 className="text-2xl font-semibold mb-4">4. Play as Playlist</h2>
+              <div className="p-6 rounded-lg border">
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500">
+                    This feature plays the audio files as a playlist with crossfading and background music at runtime, 
+                    without merging them into a single file.
+                  </p>
+                </div>
+                
+                {selectedTemplate && (
+                  <PlaylistPlayer 
+                    template={selectedTemplate} 
+                    audioFiles={audioFiles} 
+                  />
                 )}
               </div>
             </section>
