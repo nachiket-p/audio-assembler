@@ -3,8 +3,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { PlayIcon, StopIcon, ReloadIcon, TrackNextIcon } from '@radix-ui/react-icons'
-import { Template, AudioFiles } from '@/lib/types'
+import { Template, AudioFiles, SurveyResponse } from '@/lib/types'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import Image from 'next/image'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface PlaylistPlayerProps {
   template: Template
@@ -14,10 +16,19 @@ interface PlaylistPlayerProps {
 export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerProps) {
   // Player state
   const [isPlaying, setIsPlaying] = useState(false)
+  const isPlayingRef = useRef(false) // Ref to track playing state for scheduled callbacks
   const [currentIndex, setCurrentIndex] = useState(-1)
+  const currentIndexRef = useRef(-1) // Ref to track current index for scheduled callbacks
   const [isLoading, setIsLoading] = useState(false)
   const [logs, setLogs] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  
+  // Survey state
+  const [showSurvey, setShowSurvey] = useState(false)
+  const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>([])
+  
+  // Handle image loading error
+  const [imageError, setImageError] = useState(false)
   
   // Audio context and buffers
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -27,6 +38,19 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
   const activeSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const activeGainRef = useRef<GainNode | null>(null)
   const activeBackgroundSourcesRef = useRef<AudioBufferSourceNode[]>([])
+  
+  // Crossfade timing
+  const crossfadeTimeRef = useRef<number>(0)
+  const nextItemScheduledRef = useRef<boolean>(false)
+  
+  // Update refs when state changes
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+  
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
   
   // Add a log entry
   const addLog = (message: string) => {
@@ -176,6 +200,10 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
         addLog(`Error disconnecting gain node: ${err}`)
       }
     }
+    
+    // Reset crossfade timing
+    crossfadeTimeRef.current = 0
+    nextItemScheduledRef.current = false
   }
   
   // Play the playlist from the beginning
@@ -185,6 +213,9 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
     
     // Stop any currently playing audio
     stopAllAudio()
+    
+    // Reset survey state
+    setShowSurvey(false)
     
     // Start from the beginning
     setCurrentIndex(0)
@@ -196,9 +227,9 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
   
   // Skip to the next section
   const skipToNext = () => {
-    if (!isPlaying || currentIndex < 0 || currentIndex >= template.audioSequence.length - 1) return
+    if (!isPlayingRef.current || currentIndexRef.current < 0 || currentIndexRef.current >= template.audioSequence.length - 1) return
     
-    const nextIndex = currentIndex + 1
+    const nextIndex = currentIndexRef.current + 1
     addLog(`Skipping to item ${nextIndex}: ${template.audioSequence[nextIndex].label}`)
     
     // Stop current audio
@@ -219,10 +250,82 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
     // Reset state
     setIsPlaying(false)
     setCurrentIndex(-1)
+    setShowSurvey(false)
+  }
+  
+  // Handle survey response
+  const handleSurveyResponse = (answer: string) => {
+    if (!template.survey) return
+    
+    // Record the response
+    const response: SurveyResponse = {
+      question: template.survey.question,
+      answer,
+      timestamp: Date.now()
+    }
+    
+    setSurveyResponses(prev => [...prev, response])
+    addLog(`Survey response recorded: ${answer}`)
+    
+    // Hide the survey
+    setShowSurvey(false)
+    
+    // Continue playback
+    const nextIndex = currentIndexRef.current + 1
+    if (nextIndex < template.audioSequence.length) {
+      setCurrentIndex(nextIndex)
+      playAudioItem(nextIndex)
+    } else {
+      // End of playlist
+      addLog('Playlist finished')
+      stopPlaylist()
+    }
+  }
+  
+  // Schedule the next audio item with crossfading
+  const scheduleNextItem = (currentIndex: number, currentEndTime: number) => {
+    const nextIndex = currentIndex + 1
+    
+    // Don't schedule if we're at the end or if next item is already scheduled
+    if (nextIndex >= template.audioSequence.length || nextItemScheduledRef.current) {
+      return
+    }
+    
+    // Check if we need to show a survey after the current item
+    if (template.survey && template.survey.afterIndex === currentIndex) {
+      // Don't schedule next item, we'll wait for survey response
+      addLog(`Will show survey after item ${currentIndex} completes`)
+      return
+    }
+    
+    // Calculate when to start the next item for proper crossfading
+    const audioContext = audioContextRef.current
+    if (!audioContext) return
+    
+    // Start the next item before the current one ends (by fadeOut duration)
+    const startTime = currentEndTime - template.fadeOut
+    
+    // Schedule the next item
+    addLog(`Scheduling next item ${nextIndex} to start at ${startTime.toFixed(2)}s (with crossfade)`)
+    nextItemScheduledRef.current = true
+    
+    // Use setTimeout to schedule the next item
+    const timeUntilStart = (startTime - audioContext.currentTime) * 1000
+    setTimeout(() => {
+      addLog(`Going to play next item ${nextIndex} at ${audioContext.currentTime.toFixed(2)}s (isPlaying: ${isPlayingRef.current}, currentIndex: ${currentIndexRef.current})`)
+      if (isPlayingRef.current && currentIndexRef.current === currentIndex) {
+        setCurrentIndex(nextIndex)
+        playAudioItem(nextIndex, true) // true = is crossfading
+        nextItemScheduledRef.current = false
+      } else {
+        addLog(`Skipping scheduled playback because isPlaying=${isPlayingRef.current} or currentIndex=${currentIndexRef.current} (expected ${currentIndex})`)
+        nextItemScheduledRef.current = false
+      }
+    }, Math.max(0, timeUntilStart))
   }
   
   // Play a specific audio item
-  const playAudioItem = (index: number) => {
+  const playAudioItem = (index: number, isCrossfading = false) => {
     const audioContext = audioContextRef.current
     if (!audioContext || !template || index >= template.audioSequence.length) return
     
@@ -241,7 +344,7 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
       
       // Move to next item
       setTimeout(() => {
-        if (isPlaying) {
+        if (isPlayingRef.current) {
           const nextIndex = index + 1
           if (nextIndex < template.audioSequence.length) {
             setCurrentIndex(nextIndex)
@@ -255,7 +358,7 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
       return
     }
     
-    addLog(`Playing item ${index}: ${item.label}`)
+    addLog(`Playing item ${index}: ${item.label}${isCrossfading ? ' (crossfading)' : ''}`)
     
     try {
       // Create source node
@@ -268,17 +371,27 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
       gainNode.connect(audioContext.destination)
       
       // Store references to active nodes
-      activeSourceRef.current = source
-      activeGainRef.current = gainNode
+      if (!isCrossfading) {
+        // If not crossfading, replace the current active source
+        activeSourceRef.current = source
+        activeGainRef.current = gainNode
+      } else {
+        // If crossfading, we're adding a new source while the previous one is still playing
+        // The previous one will fade out automatically
+      }
       
       // Apply fade in
       gainNode.gain.setValueAtTime(0, audioContext.currentTime)
       gainNode.gain.linearRampToValueAtTime(1, audioContext.currentTime + template.fadeIn)
       
+      // Calculate when this item will end
+      const itemDuration = audioBuffer.duration
+      const endTime = audioContext.currentTime + itemDuration
+      
       // Apply fade out
-      const fadeOutStart = audioContext.currentTime + audioBuffer.duration - template.fadeOut
+      const fadeOutStart = endTime - template.fadeOut
       gainNode.gain.setValueAtTime(1, fadeOutStart)
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + audioBuffer.duration)
+      gainNode.gain.linearRampToValueAtTime(0, endTime)
       
       // Handle background music if present
       if (item.backgroundMusic) {
@@ -312,13 +425,25 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
       // Start the source
       source.start()
       
-      // Schedule the next item
+      // Schedule the next item with crossfading
+      scheduleNextItem(index, endTime)
+      
+      // Handle when this item ends
       source.onended = () => {
         addLog(`Finished playing item ${index}: ${item.label}`)
         
         // Only proceed if we're still playing and this is still the current item
-        // This prevents issues when skipping or stopping
-        if (isPlaying && currentIndex === index) {
+        // and we haven't already scheduled the next item
+        if (isPlayingRef.current && currentIndexRef.current === index && !nextItemScheduledRef.current) {
+          // Check if we need to show a survey
+          if (template.survey && template.survey.afterIndex === index) {
+            addLog('Showing survey')
+            setShowSurvey(true)
+            return // Don't proceed to next item until survey is answered
+          }
+          
+          // If we get here, it means the next item wasn't scheduled for crossfading
+          // (possibly because the item was too short), so we'll play it now
           const nextIndex = index + 1
           
           if (nextIndex < template.audioSequence.length) {
@@ -350,6 +475,11 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
   // Check if all required files are loaded
   const requiredUploads = template?.audioSequence.filter(item => item.placeholderKey).length ?? 0
   const hasAllRequiredFiles = audioFiles.audioFiles.length === requiredUploads
+  
+  // Get current item for visual content
+  const currentItem = currentIndex >= 0 && currentIndex < template.audioSequence.length 
+    ? template.audioSequence[currentIndex] 
+    : null
   
   return (
     <div className="space-y-4">
@@ -388,7 +518,7 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
         
         <Button
           onClick={skipToNext}
-          disabled={!isPlaying || currentIndex < 0 || currentIndex >= template.audioSequence.length - 1}
+          disabled={!isPlaying || currentIndex < 0 || currentIndex >= template.audioSequence.length - 1 || showSurvey}
           variant="secondary"
         >
           <TrackNextIcon className="mr-2 h-4 w-4" />
@@ -410,6 +540,66 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
         </div>
       )}
       
+      {/* Visual Content Display */}
+      {currentItem?.visualContent && (
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle>{currentItem.visualContent.title || currentItem.label}</CardTitle>
+            <CardDescription>Now playing: {currentItem.label}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {currentItem.visualContent.type === 'text' ? (
+              <div className="p-4 bg-muted/30 rounded-md">
+                <p className="text-lg">{currentItem.visualContent.content}</p>
+              </div>
+            ) : (
+              <div className="relative w-full h-[300px] rounded-md overflow-hidden bg-muted/20">
+                {imageError ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">Image could not be loaded</p>
+                  </div>
+                ) : (
+                  <Image 
+                    src={currentItem.visualContent.content}
+                    alt={currentItem.visualContent.title || currentItem.label}
+                    fill
+                    className="object-cover"
+                    onError={() => setImageError(true)}
+                    sizes="(max-width: 768px) 100vw, 600px"
+                    priority
+                  />
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Survey Display */}
+      {showSurvey && template.survey && (
+        <Card className="border-primary/50">
+          <CardHeader className="bg-primary/5">
+            <CardTitle>Quick Survey</CardTitle>
+            <CardDescription>Please answer to continue playback</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-medium mb-4">{template.survey.question}</h3>
+            <div className="flex flex-wrap gap-2">
+              {template.survey.options.map((option, i) => (
+                <Button 
+                  key={i} 
+                  onClick={() => handleSurveyResponse(option)}
+                  variant="outline"
+                  className="min-w-[100px]"
+                >
+                  {option}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       <div className="p-4 border rounded-md">
         <h3 className="font-medium mb-2">Now Playing</h3>
         {currentIndex >= 0 && currentIndex < template.audioSequence.length ? (
@@ -423,6 +613,26 @@ export default function PlaylistPlayer({ template, audioFiles }: PlaylistPlayerP
           <p className="text-gray-500">Not playing</p>
         )}
       </div>
+      
+      {/* Survey Responses */}
+      {surveyResponses.length > 0 && (
+        <div className="border rounded-md">
+          <div className="p-3 border-b bg-muted/50">
+            <h3 className="font-medium">Survey Responses</h3>
+          </div>
+          <div className="p-3">
+            {surveyResponses.map((response, i) => (
+              <div key={i} className="py-2 border-b last:border-0">
+                <p className="text-sm font-medium">{response.question}</p>
+                <p className="text-sm">Answer: <span className="font-medium">{response.answer}</span></p>
+                <p className="text-xs text-gray-500">
+                  {new Date(response.timestamp).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       <div className="border rounded-md">
         <div className="p-3 border-b bg-muted/50">

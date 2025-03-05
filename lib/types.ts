@@ -3,6 +3,11 @@ export interface AudioSequenceItem {
   backgroundMusic?: string
   placeholderKey?: string
   label: string
+  visualContent?: {
+    type: 'text' | 'image'
+    content: string // text content or image URL
+    title?: string
+  }
 }
 
 export interface Template {
@@ -11,6 +16,11 @@ export interface Template {
   audioSequence: AudioSequenceItem[]
   fadeIn: number
   fadeOut: number
+  survey?: {
+    afterIndex: number // Show survey after this segment index
+    question: string
+    options: string[] // e.g. ["Yes", "No"]
+  }
 }
 
 export interface AudioFile {
@@ -20,4 +30,10 @@ export interface AudioFile {
 
 export interface AudioFiles {
   audioFiles: AudioFile[]
+}
+
+export interface SurveyResponse {
+  question: string
+  answer: string
+  timestamp: number
 } 
