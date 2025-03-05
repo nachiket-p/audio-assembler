@@ -6,7 +6,7 @@ import { PlayIcon, StopIcon, ReloadIcon, TrackNextIcon } from '@radix-ui/react-i
 import { Template, AudioFiles, SurveyResponse } from '@/lib/types'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Image from 'next/image'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface PlaylistPlayerProps {
   template: Template
